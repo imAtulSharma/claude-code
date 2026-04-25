@@ -1,8 +1,16 @@
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.util.JSONPObject;
 import com.openai.client.OpenAIClient;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.core.JsonObject;
+import com.openai.core.JsonValue;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
+import com.openai.models.chat.completions.ChatCompletionMessage;
+import com.openai.models.chat.completions.ChatCompletionMessageToolCall;
 import tools.ReadTool;
+import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
@@ -43,6 +51,34 @@ public class Main {
         // You can use print statements as follows for debugging, they'll be visible when running tests.
         System.err.println("Logs from your program will appear here!");
 
-        System.out.print(response.choices().get(0).message().content().orElse(""));
+        ChatCompletionMessage message = response.choices().getFirst().message();
+
+        String content = message.content().orElse(null);
+        List<ChatCompletionMessageToolCall> toolCalls = message.toolCalls().orElse(null);
+
+        if(content != null)
+            System.out.print(message.content().orElse(""));
+        else if(toolCalls != null && !toolCalls.isEmpty())
+            identifyToolsAndExecute(toolCalls);
+    }
+
+    private static void identifyToolsAndExecute(List<ChatCompletionMessageToolCall> toolCalls) {
+        for (ChatCompletionMessageToolCall toolCall: toolCalls) {
+            try {
+                if (toolCall._type() == JsonValue.from("function")) {
+                    ChatCompletionMessageToolCall.Function function = toolCall.function();
+                    String arguments = function.arguments();
+                    ObjectMapper mapper = new ObjectMapper();
+                    JsonNode node = mapper.readTree(arguments);
+
+                    if (function.name().equals("Read")) {
+                        String filePath = node.get("file_path").asText();
+                        ReadTool.execute(filePath);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println(e.getMessage());
+            }
+        }
     }
 }

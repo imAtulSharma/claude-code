@@ -6,6 +6,8 @@ import com.openai.models.FunctionParameters;
 import com.openai.models.chat.completions.ChatCompletionTool;
 import model.ParameterProperty;
 
+import java.io.*;
+
 public class ReadTool {
     public static ChatCompletionTool getInstance() {
         return ChatCompletionTool.builder()
@@ -26,5 +28,14 @@ public class ReadTool {
         return FunctionParameters.builder()
                 .putAdditionalProperty("file_path", JsonValue.from(property))
                 .build();
+    }
+
+    public static void execute(String path) {
+        File file = new File(path);
+        try (FileReader reader = new FileReader(file)) {
+            System.out.println(reader.readAllAsString());
+        } catch (IOException e) {
+            System.err.println(e.getMessage());
+        }
     }
 }
