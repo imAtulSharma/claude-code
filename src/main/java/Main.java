@@ -65,14 +65,14 @@ public class Main {
     private static void identifyToolsAndExecute(List<ChatCompletionMessageToolCall> toolCalls) {
         for (ChatCompletionMessageToolCall toolCall: toolCalls) {
             try {
-                if (toolCall._type() == JsonValue.from("function")) {
+                if (toolCall._type().equals(JsonValue.from("function"))) {
                     ChatCompletionMessageToolCall.Function function = toolCall.function();
                     String arguments = function.arguments();
                     ObjectMapper mapper = new ObjectMapper();
                     JsonNode node = mapper.readTree(arguments);
 
                     if (function.name().equals("Read")) {
-                        String filePath = node.get("file_path").asText();
+                        String filePath = node.get("parameter").asText();
                         ReadTool.execute(filePath);
                     }
                 }
