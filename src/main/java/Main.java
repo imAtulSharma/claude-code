@@ -1,18 +1,16 @@
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.util.JSONPObject;
 import com.openai.client.OpenAIClient;
-import com.openai.client.okhttp.OpenAIOkHttpClient;
-import com.openai.core.JsonObject;
 import com.openai.core.JsonValue;
-import com.openai.models.chat.completions.ChatCompletion;
-import com.openai.models.chat.completions.ChatCompletionCreateParams;
-import com.openai.models.chat.completions.ChatCompletionMessage;
-import com.openai.models.chat.completions.ChatCompletionMessageToolCall;
+import com.openai.models.chat.completions.*;
+import helper.OpenAIHelper;
 import tools.ReadTool;
+import java.util.ArrayList;
 import java.util.List;
 
 public class Main {
+    private static final List<ChatCompletionMessageParam> messages = new ArrayList<>();
+
     public static void main(String[] args) {
         if (args.length < 2 || !"-p".equals(args[0])) {
             System.err.println("Usage: program -p <prompt>");
@@ -21,45 +19,50 @@ public class Main {
 
         String prompt = args[1];
 
-        String apiKey = System.getenv("OPENROUTER_API_KEY");
-        String baseUrl = System.getenv("OPENROUTER_BASE_URL");
-        if (baseUrl == null || baseUrl.isEmpty()) {
-            baseUrl = "https://openrouter.ai/api/v1";
-        }
+        // You can use print statements as follows for debugging, they'll be visible when running tests.
+        System.err.println("Logs from your program will appear here!");
 
-        if (apiKey == null || apiKey.isEmpty()) {
-            throw new RuntimeException("OPENROUTER_API_KEY is not set");
-        }
+        OpenAIClient client = OpenAIHelper.getClient();
 
-        OpenAIClient client = OpenAIOkHttpClient.builder()
-                .apiKey(apiKey)
-                .baseUrl(baseUrl)
-                .build();
-
-        ChatCompletion response = client.chat().completions().create(
-                ChatCompletionCreateParams.builder()
-                        .model("anthropic/claude-haiku-4.5")
-                        .addUserMessage(prompt)
-                        .addTool(ReadTool.getInstance())
+        messages.add(
+                ChatCompletionMessageParam.ofUser(
+                        ChatCompletionUserMessageParam.builder()
+                        .content(prompt)
                         .build()
+                )
         );
 
+        ChatCompletion response = OpenAIHelper.chat(client, messages);
+
+        handleResponse(client, response, prompt);
+    }
+
+    private static void handleResponse(OpenAIClient client, ChatCompletion response, String prompt) {
         if (response.choices().isEmpty()) {
             throw new RuntimeException("no choices in response");
         }
 
-        // You can use print statements as follows for debugging, they'll be visible when running tests.
-        System.err.println("Logs from your program will appear here!");
-
         ChatCompletionMessage message = response.choices().getFirst().message();
+        List<ChatCompletionMessageToolCall> toolCalls = message.toolCalls().orElse(new ArrayList<>());
 
-        String content = message.content().orElse(null);
-        List<ChatCompletionMessageToolCall> toolCalls = message.toolCalls().orElse(null);
+        messages.add(
+                ChatCompletionMessageParam.ofAssistant(
+                        ChatCompletionAssistantMessageParam.builder()
+                                .toolCalls(toolCalls)
+                                .content(message.content().orElse(""))
+                                .build()
+                )
+        );
 
-        if(content != null)
+        if(toolCalls.isEmpty()) {
             System.out.print(message.content().orElse(""));
-        else if(toolCalls != null && !toolCalls.isEmpty())
-            identifyToolsAndExecute(toolCalls);
+            return;
+        }
+
+        identifyToolsAndExecute(toolCalls);
+
+        ChatCompletion newResponse = OpenAIHelper.chat(client, messages);
+        handleResponse(client, newResponse, prompt);
     }
 
     private static void identifyToolsAndExecute(List<ChatCompletionMessageToolCall> toolCalls) {
@@ -73,7 +76,12 @@ public class Main {
 
                     if (function.name().equals("Read")) {
                         String filePath = node.get("parameter").asText();
-                        ReadTool.execute(filePath);
+                        String fileContent = ReadTool.execute(filePath);
+                        ChatCompletionToolMessageParam toolMessageParam = ChatCompletionToolMessageParam.builder()
+                                .toolCallId(toolCall.id())
+                                .content(fileContent)
+                                .build();
+                        messages.add(ChatCompletionMessageParam.ofTool(toolMessageParam));
                     }
                 }
             } catch (Exception e) {

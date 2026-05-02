@@ -30,12 +30,10 @@ public class ReadTool {
                 .build();
     }
 
-    public static void execute(String path) {
+    public static String execute(String path) throws IOException {
         File file = new File(path);
         try (FileReader reader = new FileReader(file)) {
-            System.out.println(reader.readAllAsString());
-        } catch (IOException e) {
-            System.err.println(e.getMessage());
+            return reader.readAllAsString();
         }
     }
 }
