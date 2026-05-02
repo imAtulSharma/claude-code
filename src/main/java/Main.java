@@ -5,6 +5,7 @@ import com.openai.core.JsonValue;
 import com.openai.errors.BadRequestException;
 import com.openai.models.chat.completions.*;
 import helper.OpenAIHelper;
+import tools.BashTool;
 import tools.ReadTool;
 import tools.WriteTool;
 
@@ -97,6 +98,14 @@ public class Main {
                         ChatCompletionToolMessageParam toolMessageParam = ChatCompletionToolMessageParam.builder()
                                 .toolCallId(toolCall.id())
                                 .content("Created/Updated the file")
+                                .build();
+                        messages.add(ChatCompletionMessageParam.ofTool(toolMessageParam));
+                    } else if (function.name().equals("Bash")) {
+                        String command = node.get("command").asText();
+                        String result = BashTool.execute(command);
+                        ChatCompletionToolMessageParam toolMessageParam = ChatCompletionToolMessageParam.builder()
+                                .toolCallId(toolCall.id())
+                                .content(result)
                                 .build();
                         messages.add(ChatCompletionMessageParam.ofTool(toolMessageParam));
                     }

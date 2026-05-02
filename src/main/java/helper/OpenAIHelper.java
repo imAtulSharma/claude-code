@@ -5,6 +5,7 @@ import com.openai.client.okhttp.OpenAIOkHttpClient;
 import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import com.openai.models.chat.completions.ChatCompletionMessageParam;
+import tools.BashTool;
 import tools.ReadTool;
 import tools.WriteTool;
 
@@ -35,6 +36,7 @@ public class OpenAIHelper {
                         .messages(messages)
                         .addTool(ReadTool.getInstance())
                         .addTool(WriteTool.getInstance())
+                        .addTool(BashTool.getInstance())
                         .build()
         );
     }
