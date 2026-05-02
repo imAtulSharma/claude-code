@@ -2,9 +2,13 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.openai.client.OpenAIClient;
 import com.openai.core.JsonValue;
+import com.openai.errors.BadRequestException;
 import com.openai.models.chat.completions.*;
 import helper.OpenAIHelper;
 import tools.ReadTool;
+import tools.WriteTool;
+
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,9 +36,13 @@ public class Main {
                 )
         );
 
-        ChatCompletion response = OpenAIHelper.chat(client, messages);
+        try {
+            ChatCompletion response = OpenAIHelper.chat(client, messages);
 
-        handleResponse(client, response, prompt);
+            handleResponse(client, response, prompt);
+        } catch (BadRequestException e) {
+            System.err.println(e.body());
+        }
     }
 
     private static void handleResponse(OpenAIClient client, ChatCompletion response, String prompt) {
@@ -75,16 +83,25 @@ public class Main {
                     JsonNode node = mapper.readTree(arguments);
 
                     if (function.name().equals("Read")) {
-                        String filePath = node.get("parameter").asText();
+                        String filePath = node.get("file_path").asText();
                         String fileContent = ReadTool.execute(filePath);
                         ChatCompletionToolMessageParam toolMessageParam = ChatCompletionToolMessageParam.builder()
                                 .toolCallId(toolCall.id())
                                 .content(fileContent)
                                 .build();
                         messages.add(ChatCompletionMessageParam.ofTool(toolMessageParam));
+                    } else if (function.name().equals("Write")) {
+                        String filePath = node.get("file_path").asText();
+                        String content = node.get("content").asText();
+                        WriteTool.execute(filePath, content);
+                        ChatCompletionToolMessageParam toolMessageParam = ChatCompletionToolMessageParam.builder()
+                                .toolCallId(toolCall.id())
+                                .content("Created/Updated the file")
+                                .build();
+                        messages.add(ChatCompletionMessageParam.ofTool(toolMessageParam));
                     }
                 }
-            } catch (Exception e) {
+            } catch (IOException e) {
                 System.err.println(e.getMessage());
             }
         }

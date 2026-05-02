@@ -6,6 +6,8 @@ import com.openai.models.chat.completions.ChatCompletion;
 import com.openai.models.chat.completions.ChatCompletionCreateParams;
 import com.openai.models.chat.completions.ChatCompletionMessageParam;
 import tools.ReadTool;
+import tools.WriteTool;
+
 import java.util.List;
 
 public class OpenAIHelper {
@@ -32,6 +34,7 @@ public class OpenAIHelper {
                         .model("anthropic/claude-haiku-4.5")
                         .messages(messages)
                         .addTool(ReadTool.getInstance())
+                        .addTool(WriteTool.getInstance())
                         .build()
         );
     }
